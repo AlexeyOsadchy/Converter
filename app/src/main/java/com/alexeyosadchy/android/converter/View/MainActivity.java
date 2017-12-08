@@ -2,8 +2,13 @@ package com.alexeyosadchy.android.converter.View;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -17,16 +22,22 @@ import com.alexeyosadchy.android.converter.Presenter.MainActivityPresenter;
 import com.alexeyosadchy.android.converter.R;
 import com.jakewharton.rxbinding2.widget.RxTextView;
 
+import java.util.Observable;
+import java.util.Observer;
+
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 import butterknife.OnItemSelected;
+import io.reactivex.functions.Consumer;
 
 public class MainActivity extends AppCompatActivity implements IMainActivityView {
     private final String APP_SHARED_PREFERENCES = "settings";
     private final String DATE_LAST_UPDATE = "date";
     private IMainActivityPresenter mPresenter;
     private SharedPreferences mSharedPreferences;
+    private int mSelectedIndexSpinner1 = -1;
+    private int mSelectedIndexSpinner2 = -1;
     @BindView(R.id.updateInfoButton)
     Button updateInfoButton;
 
@@ -62,25 +73,65 @@ public class MainActivity extends AppCompatActivity implements IMainActivityView
         ButterKnife.bind(this);
         mPresenter = new MainActivityPresenter();
         mPresenter.attachView(this);
-        String[] cities = {"USD", "PLN", "RUB", "UAH", "EUR", "AUD", "BGN", "UAH", "DKK", "USD", "EUR", "PLN",
-                "IRR", "ISK", "JPY", "CAD", "CNY", "KWD", "MDL", "NZD", "NOK", "RUB",
-                "XDR", "SGD", "KGS", "KZT", "TRY", "GBP", "CZK", "SEK", "CHF"};
-        ArrayAdapter<String> adapterCurrency1 = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, cities);
-        ArrayAdapter<String> adapterCurrency2 = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, cities);
+        String[] cities = {"AUD", "BGN", "CAD", "CHF", "CNY", "CZK", "DKK", "EUR", "GBP",
+                "IRR", "ISK", "JPY", "KGS", "KWD", "KZT", "MDL", "NOK", "NZD", "PLN", "RUB",
+                "SEK", "SGD", "TRY", "UAH", "USD", "XDR"};
+        ArrayAdapter<String> adapterCurrency1 = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, cities) {
+            @Override
+            public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+                View v;
+                v = super.getDropDownView(position, null, parent);
+                if (position == mSelectedIndexSpinner1) {
+                    v.setBackgroundColor(Color.BLUE);
+                } else {
+                    v.setBackgroundColor(Color.WHITE);
+                }
+                return v;
+            }
+        };
+        ArrayAdapter<String> adapterCurrency2 = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, cities) {
+            @Override
+            public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
+                View v;
+                v = super.getDropDownView(position, null, parent);
+                if (position == mSelectedIndexSpinner2) {
+                    v.setBackgroundColor(Color.BLUE);
+                } else {
+                    v.setBackgroundColor(Color.WHITE);
+                }
+                return v;
+            }
+        };
+        adapterCurrency1.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        adapterCurrency2.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         currency_1.setAdapter(adapterCurrency1);
         currency_2.setAdapter(adapterCurrency2);
-        RxTextView.textChanges(text1).subscribe(action1 -> mPresenter.onChangeEditText());
+        RxTextView.textChanges(text1).filter(filter -> text1.isInputMethodTarget())
+                .subscribe(action -> mPresenter.onChangeEditText());
+        RxTextView.textChanges(text2).filter(filter -> text2.isInputMethodTarget())
+                .subscribe(action -> mPresenter.onChangeEditText2());
         mSharedPreferences = getSharedPreferences(APP_SHARED_PREFERENCES, Context.MODE_PRIVATE);
         if (mSharedPreferences.contains(DATE_LAST_UPDATE)) {
             textViewDate.setText(mSharedPreferences.getString(DATE_LAST_UPDATE, ""));
         } else {
             textViewDate.setText("Not updated");
         }
+        mPresenter.onUpdateInfo();
     }
 
     @Override
     public String getValueOfText1() {
         return text1.getText().toString();
+    }
+
+    @Override
+    public String getValueOfText2() {
+        return text2.getText().toString();
+    }
+
+    @Override
+    public void setRateEditText1(String rate) {
+        text1.setText(rate);
     }
 
     @Override
@@ -91,11 +142,13 @@ public class MainActivity extends AppCompatActivity implements IMainActivityView
     @OnItemSelected(R.id.currency_1)
     public void onItemSelectedSpinner1() {
         mPresenter.onClickSpinner();
+        mSelectedIndexSpinner1 = currency_1.getSelectedItemPosition();
     }
 
     @OnItemSelected(R.id.currency_2)
     public void onItemSelectedSpinner2() {
         mPresenter.onClickSpinner();
+        mSelectedIndexSpinner2 = currency_2.getSelectedItemPosition();
     }
 
     @Override
@@ -153,5 +206,12 @@ public class MainActivity extends AppCompatActivity implements IMainActivityView
     public void setDate(String date) {
         textViewDate.setText(date);
         mSharedPreferences.edit().putString(DATE_LAST_UPDATE, date).apply();
+    }
+
+    @Override
+    public int getSelectedEditText() {
+        if (text2.isInputMethodTarget()) {
+            return 2;
+        } else return 1;
     }
 }

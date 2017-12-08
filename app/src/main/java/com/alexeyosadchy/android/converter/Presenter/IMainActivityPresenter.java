@@ -9,6 +9,7 @@ public interface IMainActivityPresenter {
     void onClickSpinner();
     void reverseCurrency();
     void onChangeEditText();
+    void onChangeEditText2();
     void onClickClearButton();
     void networkUnavailable();
     void onError(Throwable e);
